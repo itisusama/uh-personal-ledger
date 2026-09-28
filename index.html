@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Usama Hassan Account Statement</title>
+  <meta name="description" content="Personal account statement for Usama Hassan. Records stay in this browser; back up as Markdown.">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="page">
+
+    <!-- Header -->
+    <header class="site-header">
+      <div class="brand">
+        <p class="brand-name">Usama Hassan</p>
+        <h1 class="brand-title">Account Statement</h1>
+      </div>
+      <button type="button" class="btn btn-primary btn-add" data-action="add">
+        <span aria-hidden="true">+</span> Add Transaction
+      </button>
+    </header>
+
+    <!-- Storage warning (shown only if Local Storage is unavailable) -->
+    <div id="storageWarning" class="notice notice-danger" hidden>
+      Local Storage is not available in this browser, so changes will not be saved after you close this page.
+      Download a Markdown backup before leaving.
+    </div>
+
+    <!-- Sample data banner -->
+    <div id="sampleBanner" class="notice notice-sample" hidden>
+      <div>
+        <strong>You are looking at sample data.</strong>
+        <span id="sampleBannerText">Transactions marked “Sample” are demo entries so you can try the app.</span>
+      </div>
+      <button type="button" class="btn btn-small btn-outline" id="clearSampleBtn">Clear sample data</button>
+    </div>
+
+    <!-- Month navigation -->
+    <section class="month-bar" aria-label="Month selection">
+      <button type="button" class="btn btn-ghost month-step" id="prevMonthBtn" aria-label="Previous month">
+        <span aria-hidden="true">←</span> <span id="prevMonthLabel"></span>
+      </button>
+      <div class="month-current">
+        <h2 id="currentMonthLabel" class="month-label">—</h2>
+        <label class="visually-hidden" for="monthSelect">Jump to month</label>
+        <select id="monthSelect" class="month-select"></select>
+      </div>
+      <button type="button" class="btn btn-ghost month-step" id="nextMonthBtn" aria-label="Next month">
+        <span id="nextMonthLabel"></span> <span aria-hidden="true">→</span>
+      </button>
+    </section>
+
+    <!-- Summary -->
+    <section class="summary" aria-label="Summary" aria-live="polite">
+      <div class="summary-card">
+        <p class="summary-label">Credit <span class="summary-hint">money in</span></p>
+        <p class="summary-value is-credit" id="totalCredit">0 PKR</p>
+      </div>
+      <div class="summary-card">
+        <p class="summary-label">Debit <span class="summary-hint">money out</span></p>
+        <p class="summary-value is-debit" id="totalDebit">0 PKR</p>
+      </div>
+      <div class="summary-card summary-net" id="netCard">
+        <p class="summary-label">Net <span class="summary-hint">credit − debit</span></p>
+        <p class="summary-value" id="totalNet">0 PKR</p>
+        <p class="net-verdict" id="netVerdict"></p>
+      </div>
+    </section>
+
+    <div class="layout">
+      <!-- Statement -->
+      <main class="panel statement">
+        <div class="panel-head">
+          <h2 class="panel-title">Transactions</h2>
+          <p class="panel-sub" id="resultInfo"></p>
+        </div>
+
+        <div class="filters" role="search">
+          <div class="field field-search">
+            <label for="searchInput">Search</label>
+            <input type="search" id="searchInput" placeholder="Description or account" autocomplete="off">
+          </div>
+          <div class="field">
+            <label for="accountFilter">Account</label>
+            <select id="accountFilter"></select>
+          </div>
+          <div class="field">
+            <label for="typeFilter">Type</label>
+            <select id="typeFilter">
+              <option value="all">All</option>
+              <option value="credit">Credit</option>
+              <option value="debit">Debit</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="sortOrder">Sort</label>
+            <select id="sortOrder">
+              <option value="desc">Newest first</option>
+              <option value="asc">Oldest first</option>
+            </select>
+          </div>
+          <div class="field field-reset">
+            <button type="button" class="btn btn-ghost btn-small" id="resetFiltersBtn" hidden>Reset filters</button>
+          </div>
+        </div>
+
+        <div id="listContainer">
+          <table class="tx-table" id="txTable">
+            <thead>
+              <tr>
+                <th scope="col">Date</th>
+                <th scope="col">Description</th>
+                <th scope="col">Account</th>
+                <th scope="col">Type</th>
+                <th scope="col" class="num">Amount</th>
+                <th scope="col" class="actions-col">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="txBody"></tbody>
+          </table>
+          <div id="emptyState" class="empty" hidden></div>
+        </div>
+      </main>
+
+      <aside class="side">
+        <!-- Account summary -->
+        <section class="panel">
+          <div class="panel-head">
+            <h2 class="panel-title">Accounts</h2>
+            <p class="panel-sub" id="accountSummaryScope"></p>
+          </div>
+          <div id="accountSummary" class="account-list"></div>
+        </section>
+
+        <!-- Backup -->
+        <section class="panel backup">
+          <div class="panel-head">
+            <h2 class="panel-title">Backup &amp; Data</h2>
+            <p class="panel-sub">Markdown is your portable record. Keep a copy somewhere safe.</p>
+          </div>
+
+          <div class="field">
+            <label for="exportScope">Export</label>
+            <select id="exportScope">
+              <option value="all">All Time (full backup)</option>
+              <option value="month" id="exportScopeMonth">Selected month</option>
+            </select>
+          </div>
+
+          <div class="backup-actions">
+            <button type="button" class="btn btn-outline" id="downloadMdBtn">Download Markdown</button>
+            <button type="button" class="btn btn-outline" id="copyMdBtn">Copy Markdown</button>
+            <button type="button" class="btn btn-outline" id="importMdBtn">Import Markdown</button>
+            <input type="file" id="importFile" accept=".md,.markdown,.txt,text/markdown,text/plain" hidden>
+          </div>
+
+          <div class="danger-zone">
+            <button type="button" class="btn btn-danger-outline" id="clearAllBtn">Clear All Data</button>
+          </div>
+        </section>
+      </aside>
+    </div>
+
+    <footer class="site-footer">
+      Stored only in this browser (Local Storage). No server, no account, no cloud.
+    </footer>
+  </div>
+
+  <!-- Transaction form dialog -->
+  <div class="modal" id="txModal" hidden>
+    <div class="modal-backdrop" data-close></div>
+    <div class="modal-dialog" role="dialog" aria-modal="true" aria-labelledby="txModalTitle">
+      <form id="txForm" novalidate>
+        <div class="modal-head">
+          <h2 id="txModalTitle">Add Transaction</h2>
+          <button type="button" class="icon-btn" data-close aria-label="Close">×</button>
+        </div>
+
+        <div class="modal-body">
+          <input type="hidden" id="txId">
+
+          <div class="type-toggle" role="radiogroup" aria-label="Type">
+            <label class="type-option type-credit">
+              <input type="radio" name="txType" value="credit">
+              <span>Credit <small>money in</small></span>
+            </label>
+            <label class="type-option type-debit">
+              <input type="radio" name="txType" value="debit">
+              <span>Debit <small>money out</small></span>
+            </label>
+          </div>
+          <p class="field-error" id="err-type"></p>
+
+          <div class="form-grid">
+            <div class="field">
+              <label for="txDate">Date</label>
+              <input type="date" id="txDate" required>
+              <p class="field-error" id="err-date"></p>
+            </div>
+            <div class="field">
+              <label for="txAmount">Amount (PKR)</label>
+              <input type="text" id="txAmount" inputmode="decimal" placeholder="e.g. 2,000" autocomplete="off" required>
+              <p class="field-error" id="err-amount"></p>
+            </div>
+          </div>
+
+          <div class="field">
+            <label for="txDescription">Description</label>
+            <input type="text" id="txDescription" placeholder="e.g. Bought groceries from XYZ store" maxlength="200" autocomplete="off" required>
+            <p class="field-error" id="err-description"></p>
+          </div>
+
+          <div class="field">
+            <label for="txAccount">Account / Source</label>
+            <input type="text" id="txAccount" list="accountOptions" placeholder="e.g. Cash, SadaPay, Jazz Cash" maxlength="60" autocomplete="off" required>
+            <datalist id="accountOptions"></datalist>
+            <div class="account-chips" id="accountChips"></div>
+            <p class="field-error" id="err-account"></p>
+          </div>
+        </div>
+
+        <div class="modal-foot">
+          <button type="button" class="btn btn-ghost" data-close>Cancel</button>
+          <button type="submit" class="btn btn-primary">Save Transaction</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Generic confirm / choice dialog -->
+  <div class="modal" id="confirmModal" hidden>
+    <div class="modal-backdrop" data-close></div>
+    <div class="modal-dialog modal-small" role="alertdialog" aria-modal="true" aria-labelledby="confirmTitle" aria-describedby="confirmMessage">
+      <div class="modal-head">
+        <h2 id="confirmTitle">Are you sure?</h2>
+      </div>
+      <div class="modal-body">
+        <div id="confirmMessage" class="confirm-message"></div>
+      </div>
+      <div class="modal-foot" id="confirmActions"></div>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+
+  <script src="app.js"></script>
+</body>
+</html>
