@@ -11,14 +11,6 @@
   var MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July',
     'August', 'September', 'October', 'November', 'December'];
 
-  var SAMPLE_TRANSACTIONS = [
-    { date: '2026-09-12', description: 'Bought groceries from XYZ store', amount: 2000, account: 'Cash', type: 'debit' },
-    { date: '2026-09-13', description: 'Something', amount: 2000, account: 'Jazz Cash', type: 'debit' },
-    { date: '2026-09-14', description: 'Profit from Raqmi', amount: 2000, account: 'Raqmi', type: 'credit' },
-    { date: '2026-09-15', description: 'Claude Subscription done', amount: 5330, account: 'SadaPay', type: 'debit' },
-    { date: '2026-09-20', description: 'Jazz cash week profit', amount: 2000, account: 'Jazz Week', type: 'credit' }
-  ];
-
   /* =========================================================
      Utilities
      ========================================================= */
