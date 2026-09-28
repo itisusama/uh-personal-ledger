@@ -124,6 +124,48 @@
       </main>
 
       <aside class="side">
+        <!-- Savings (private: kept separately, never exported to Markdown) -->
+        <section class="panel savings" aria-labelledby="savingsTitle">
+          <div class="panel-head savings-head">
+            <div>
+              <h2 class="panel-title" id="savingsTitle">Savings</h2>
+              <p class="panel-sub">Private · not included in Markdown</p>
+            </div>
+            <button type="button" class="btn btn-ghost btn-small" id="savingsToggleBtn" aria-pressed="false">Hide</button>
+          </div>
+
+          <p class="savings-total" id="savingsTotal">0 PKR</p>
+          <p class="savings-meta" id="savingsMeta"></p>
+
+          <div class="savings-actions">
+            <button type="button" class="btn btn-outline btn-small savings-in-btn" id="savingsAddBtn">+ Add to savings</button>
+            <button type="button" class="btn btn-outline btn-small savings-out-btn" id="savingsOutBtn">− Take out</button>
+          </div>
+
+          <form id="savingsForm" class="savings-form" novalidate hidden>
+            <p class="savings-form-title" id="savingsFormTitle">Add to savings</p>
+            <div class="field">
+              <label for="savingsAmount">Amount (PKR)</label>
+              <input type="text" id="savingsAmount" inputmode="decimal" placeholder="e.g. 5,000" autocomplete="off">
+            </div>
+            <div class="field">
+              <label for="savingsDate">Date</label>
+              <input type="date" id="savingsDate">
+            </div>
+            <div class="field">
+              <label for="savingsNote">Note <span class="optional">(optional)</span></label>
+              <input type="text" id="savingsNote" maxlength="120" placeholder="e.g. Kept aside from salary" autocomplete="off">
+            </div>
+            <p class="field-error" id="savingsError"></p>
+            <div class="savings-form-actions">
+              <button type="button" class="btn btn-ghost btn-small" id="savingsCancelBtn">Cancel</button>
+              <button type="submit" class="btn btn-primary btn-small">Save</button>
+            </div>
+          </form>
+
+          <div id="savingsHistory" class="savings-history"></div>
+        </section>
+
         <!-- Account summary -->
         <section class="panel">
           <div class="panel-head">
