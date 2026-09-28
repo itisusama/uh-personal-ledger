@@ -1415,6 +1415,211 @@
   });
 
   /* =========================================================
+     Savings (private)
+     Kept under its own Local Storage key. It is not a transaction:
+     it never touches Credit/Debit/Net, the account summary,
+     Markdown export/import or Clear All Data.
+     ========================================================= */
+
+  var SAVINGS_KEY = 'usamaHassanSavings';
+  var SAVINGS_PREVIEW = 5;
+  var savings = { entries: [], hidden: false };
+  var savingsMode = 'in';
+  var savingsShowAll = false;
+
+  function loadSavings() {
+    savings = { entries: [], hidden: false };
+    if (!storageAvailable) return;
+    try {
+      var parsed = JSON.parse(window.localStorage.getItem(SAVINGS_KEY) || 'null');
+      if (parsed && Array.isArray(parsed.entries)) {
+        savings.hidden = parsed.hidden === true;
+        savings.entries = parsed.entries.filter(function (e) {
+          return e && isValidISODate(e.date) && e.amount > 0 && (e.type === 'in' || e.type === 'out');
+        }).map(function (e) {
+          return {
+            id: String(e.id || generateId()),
+            date: e.date,
+            amount: roundMoney(Number(e.amount)),
+            type: e.type,
+            note: normalizeSpaces(e.note),
+            createdAt: String(e.createdAt || new Date().toISOString())
+          };
+        });
+      }
+    } catch (e) { /* unreadable savings: start empty, leave the stored value alone */ }
+  }
+
+  function saveSavings() {
+    if (!storageAvailable) return;
+    try {
+      window.localStorage.setItem(SAVINGS_KEY, JSON.stringify({ version: 1, hidden: savings.hidden, entries: savings.entries }));
+    } catch (e) {
+      showToast('Could not save savings to Local Storage.', true);
+    }
+  }
+
+  function savingsBalance() {
+    return roundMoney(savings.entries.reduce(function (sum, e) {
+      return sum + (e.type === 'in' ? e.amount : -e.amount);
+    }, 0));
+  }
+
+  function renderSavings() {
+    var hidden = savings.hidden;
+    var balance = savingsBalance();
+    var toggle = $('savingsToggleBtn');
+    toggle.textContent = hidden ? 'Show' : 'Hide';
+    toggle.setAttribute('aria-pressed', hidden ? 'true' : 'false');
+    toggle.setAttribute('aria-label', hidden ? 'Show savings amounts' : 'Hide savings amounts');
+
+    $('savingsTotal').textContent = hidden ? '•••••• PKR' : formatPKR(balance);
+    $('savingsTotal').classList.toggle('is-hidden', hidden);
+
+    var n = savings.entries.length;
+    if (n === 0) {
+      $('savingsMeta').textContent = 'Nothing saved yet. Add what you put aside.';
+    } else {
+      var last = sortSavings(savings.entries)[0];
+      $('savingsMeta').textContent = 'Total saved · last updated ' + formatDateShort(last.date);
+    }
+    $('savingsOutBtn').disabled = balance <= 0;
+
+    var list = sortSavings(savings.entries);
+    var shown = savingsShowAll ? list : list.slice(0, SAVINGS_PREVIEW);
+    var el = $('savingsHistory');
+    if (!n) { el.innerHTML = ''; return; }
+
+    el.innerHTML = '<p class="savings-history-title">History</p><ul class="savings-list">' +
+      shown.map(function (e) {
+        var amount = hidden ? '••••' : (e.type === 'in' ? '+ ' : '- ') + formatPKR(e.amount);
+        return '<li class="savings-item">' +
+          '<div class="savings-item-main">' +
+            '<span class="savings-item-note">' + escapeHtml(e.note || (e.type === 'in' ? 'Added to savings' : 'Taken out')) + '</span>' +
+            '<span class="savings-item-date">' + formatDateShort(e.date) + '</span>' +
+          '</div>' +
+          '<span class="savings-item-amount ' + (e.type === 'in' ? 'is-credit' : 'is-debit') + '">' + amount + '</span>' +
+          '<button type="button" class="icon-btn savings-remove" data-savings-remove="' + escapeHtml(e.id) + '" aria-label="Remove savings entry">×</button>' +
+        '</li>';
+      }).join('') + '</ul>' +
+      (list.length > SAVINGS_PREVIEW
+        ? '<button type="button" class="link-btn" id="savingsMoreBtn">' + (savingsShowAll ? 'Show less' : 'Show all ' + list.length) + '</button>'
+        : '');
+  }
+
+  function sortSavings(list) {
+    return list.slice().sort(function (a, b) {
+      if (a.date !== b.date) return a.date < b.date ? 1 : -1;
+      return a.createdAt < b.createdAt ? 1 : a.createdAt > b.createdAt ? -1 : 0;
+    });
+  }
+
+  function openSavingsForm(mode) {
+    savingsMode = mode;
+    var f = $('savingsForm');
+    f.reset();
+    $('savingsError').textContent = '';
+    $('savingsAmount').classList.remove('invalid');
+    $('savingsDate').value = todayISO();
+    $('savingsFormTitle').textContent = mode === 'in' ? 'Add to savings' : 'Take out of savings';
+    f.classList.toggle('is-out', mode === 'out');
+    f.hidden = false;
+    $('savingsAmount').focus();
+  }
+
+  function closeSavingsForm() {
+    $('savingsForm').hidden = true;
+  }
+
+  $('savingsAddBtn').addEventListener('click', function () { openSavingsForm('in'); });
+  $('savingsOutBtn').addEventListener('click', function () { openSavingsForm('out'); });
+  $('savingsCancelBtn').addEventListener('click', closeSavingsForm);
+
+  $('savingsToggleBtn').addEventListener('click', function () {
+    savings.hidden = !savings.hidden;
+    saveSavings();
+    renderSavings();
+  });
+
+  $('savingsForm').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var err = $('savingsError');
+    var raw = $('savingsAmount').value.trim();
+    var amount = parseAmount(raw);
+    var date = $('savingsDate').value;
+    var msg = '';
+    if (!raw) msg = 'Please enter an amount.';
+    else if (isNaN(amount)) msg = 'Use numbers only, e.g. 5000 or 5,000.';
+    else if (!(amount > 0)) msg = 'Amount must be greater than 0.';
+    else if (!isValidISODate(date)) msg = 'Please pick a date.';
+    else if (savingsMode === 'out' && roundMoney(amount) > savingsBalance()) {
+      msg = 'You only have ' + formatPKR(savingsBalance()) + ' in savings.';
+    }
+    if (msg) {
+      err.textContent = msg;
+      $('savingsAmount').classList.add('invalid');
+      $('savingsAmount').focus();
+      return;
+    }
+    savings.entries.push({
+      id: generateId(),
+      date: date,
+      amount: roundMoney(amount),
+      type: savingsMode,
+      note: normalizeSpaces($('savingsNote').value),
+      createdAt: new Date().toISOString()
+    });
+    saveSavings();
+    closeSavingsForm();
+    renderSavings();
+    showToast(savingsMode === 'in' ? 'Added to savings.' : 'Taken out of savings.');
+  });
+
+  $('savingsAmount').addEventListener('input', function () {
+    $('savingsError').textContent = '';
+    $('savingsAmount').classList.remove('invalid');
+  });
+
+  $('savingsHistory').addEventListener('click', function (e) {
+    if (e.target.id === 'savingsMoreBtn') {
+      savingsShowAll = !savingsShowAll;
+      renderSavings();
+      return;
+    }
+    var btn = e.target.closest('[data-savings-remove]');
+    if (!btn) return;
+    var id = btn.getAttribute('data-savings-remove');
+    var entry = savings.entries.filter(function (x) { return x.id === id; })[0];
+    if (!entry) return;
+    var remaining = savings.entries.filter(function (x) { return x.id !== id; });
+    var after = roundMoney(remaining.reduce(function (s, x) { return s + (x.type === 'in' ? x.amount : -x.amount); }, 0));
+    ask('Remove savings entry?',
+      '<p class="confirm-detail">' + formatDateLong(entry.date) + '<br>' +
+        escapeHtml(entry.note || (entry.type === 'in' ? 'Added to savings' : 'Taken out')) + '<br>' +
+        (entry.type === 'in' ? '+ ' : '- ') + formatPKR(entry.amount) + '</p>' +
+      '<p>Your savings total will become <strong>' + formatPKR(after) + '</strong>.</p>' +
+      (after < 0 ? '<p>That is below zero because a later “take out” depends on this entry.</p>' : ''),
+      [
+        { label: 'Cancel', value: false, style: 'btn-ghost' },
+        { label: 'Remove', value: true, style: 'btn-danger' }
+      ]
+    ).then(function (yes) {
+      if (!yes) return;
+      savings.entries = remaining;
+      saveSavings();
+      renderSavings();
+      showToast('Savings entry removed.');
+    });
+  });
+
+  window.addEventListener('storage', function (e) {
+    if (e.key === SAVINGS_KEY) {
+      loadSavings();
+      renderSavings();
+    }
+  });
+
+  /* =========================================================
      Start
      ========================================================= */
 
@@ -1422,6 +1627,8 @@
   loadTransactions();
   state.month = initialMonth();
   render();
+  loadSavings();
+  renderSavings();
 
   // Exposed for debugging from the console; not used by the UI.
   window.UHStatement = {
